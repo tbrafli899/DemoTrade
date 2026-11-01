@@ -1,1 +1,191 @@
 
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DemoTrade</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b1220;color:white;font-family:Arial;padding:16px}
+h2{color:#20d6a0}
+.card{background:#172337;padding:16px;border-radius:14px;margin:14px 0}
+.small{color:#9baec4;font-size:13px}
+.price{font-size:30px;font-weight:bold;margin:10px 0}
+.green{color:#20d6a0}
+.red{color:#ff5968}
+canvas{width:100%;height:240px}
+button{border:0;border-radius:9px;padding:15px;color:white;font-weight:bold;font-size:16px}
+.buy{background:#08a879;flex:1}
+.sell{background:#dc4555;flex:1}
+.row{display:flex;gap:10px}
+input{width:100%;padding:12px;background:#0b1220;color:white;border:1px solid #34445a;border-radius:8px}
+</style>
+</head>
+<body>
+
+<h2>📈 DemoTrade</h2>
+<p class="small">FOREX SIMULATOR · EUR/USD</p>
+
+<div class="card">
+<div class="small">Harga EUR/USD</div>
+<div class="price" id="price">1.08500</div>
+<div class="green">● MARKET SIMULATION</div>
+</div>
+
+<div class="card">
+<div class="small">SALDO VIRTUAL</div>
+<div class="price green" id="balance">$10,000.00</div>
+<div class="small">Ekuitas: <span id="equity">$10,000.00</span></div>
+</div>
+
+<div class="card">
+<b>Grafik Candlestick</b>
+<canvas id="chart" width="600" height="280"></canvas>
+<div class="small">Grafik harga simulasi</div>
+</div>
+
+<div class="card">
+<b>Volume Transaksi</b>
+<p class="small">Ukuran posisi virtual (unit EUR)</p>
+<input id="lot" type="number" value="1000" min="1">
+<br><br>
+<div class="row">
+<button class="buy" onclick="trade('BUY')">BUY</button>
+<button class="sell" onclick="trade('SELL')">SELL</button>
+</div>
+<p class="small" id="message">Siap untuk simulasi trading.</p>
+</div>
+
+<div class="card">
+<b>Posisi Terbuka</b>
+<p id="position" class="small">Belum ada posisi.</p>
+</div>
+
+<div class="card">
+<b>Riwayat Transaksi</b>
+<div id="history" class="small">Belum ada transaksi.</div>
+</div>
+
+<script>
+let balance=10000;
+let price=1.08500;
+let candles=[];
+let positions=[];
+let history=[];
+
+for(let i=0;i<30;i++){
+let o=price+(Math.random()-.5)*.001;
+let c=o+(Math.random()-.5)*.001;
+candles.push({
+o:o,c:c,
+h:Math.max(o,c)+Math.random()*.0004,
+l:Math.min(o,c)-Math.random()*.0004
+});
+price=c;
+}
+price=1.08500;
+
+function money(n){
+return '$'+n.toLocaleString('en-US',{
+minimumFractionDigits:2,
+maximumFractionDigits:2
+});
+}
+
+function draw(){
+let canvas=document.getElementById('chart');
+let ctx=canvas.getContext('2d');
+ctx.clearRect(0,0,600,280);
+
+let high=Math.max(...candles.map(x=>x.h));
+let low=Math.min(...candles.map(x=>x.l));
+let range=high-low||.001;
+
+function y(v){return 245-(v-low)/range*210;}
+
+candles.forEach((v,i)=>{
+let x=i*19+12;
+let color=v.c>=v.o?'#20d6a0':'#ff5968';
+ctx.strokeStyle=color;
+ctx.fillStyle=color;
+ctx.beginPath();
+ctx.moveTo(x+5,y(v.h));
+ctx.lineTo(x+5,y(v.l));
+ctx.stroke();
+ctx.fillRect(x,y(Math.max(v.o,v.c)),11,
+Math.max(2,Math.abs(y(v.o)-y(v.c))));
+});
+}
+
+function update(){
+let pnl=positions.reduce((s,p)=>
+s+(price-p.entry)*p.units*p.direction,0);
+
+document.getElementById('balance').textContent=money(balance);
+document.getElementById('equity').textContent=money(balance+pnl);
+document.getElementById('price').textContent=price.toFixed(5);
+
+document.getElementById('position').innerHTML=
+positions.length?positions.map(p=>
+p.side+' '+p.units+' EUR · '+money(
+(price-p.entry)*p.units*p.direction
+)).join('<br>'):'Belum ada posisi.';
+}
+
+function trade(side){
+let units=Number(document.getElementById('lot').value);
+
+if(!Number.isFinite(units)||units<=0){
+document.getElementById('message').textContent='Masukkan volume yang valid.';
+return;
+}
+
+let direction=side==='BUY'?1:-1;
+let required=units*.01;
+
+if(side==='BUY'&&balance<required){
+document.getElementById('message').textContent='Saldo virtual tidak cukup.';
+return;
+}
+
+positions.push({
+side:side,
+units:units,
+entry:price,
+direction:direction
+});
+
+history.unshift(side+' '+units+' EUR/USD @ '+price.toFixed(5));
+document.getElementById('history').innerHTML=
+history.slice(0,15).join('<br>');
+
+document.getElementById('message').textContent=
+'Posisi '+side+' berhasil dibuka (simulasi).';
+update();
+}
+
+function tick(){
+let open=price;
+price+= (Math.random()-.49)*.0008;
+price=Math.max(1.05000,Math.min(1.12000,price));
+
+candles.push({
+o:open,c:price,
+h:Math.max(open,price)+Math.random()*.00015,
+l:Math.min(open,price)-Math.random()*.00015
+});
+
+if(candles.length>30)candles.shift();
+
+draw();
+update();
+}
+
+draw();
+update();
+setInterval(tick,2000);
+</script>
+</body>
+</html>
+
